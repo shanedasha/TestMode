@@ -1,42 +1,61 @@
-import com.codeborne.selenide.Configuration;
-import io.restassured.builder.RequestSpecBuilder;
-import io.restassured.filter.log.LogDetail;
-import io.restassured.http.ContentType;
-import io.restassured.specification.RequestSpecification;
-import org.junit.jupiter.api.BeforeAll;
+import com.codeborne.selenide.Condition;
+import org.junit.jupiter.api.BeforeEach;
 
 import static com.codeborne.selenide.Selenide.$;
 import static com.codeborne.selenide.Selenide.open;
-import static io.restassured.RestAssured.given;
 
 public class Test {
     static class AuthTest {
-        private static RequestSpecification requestSpec = new RequestSpecBuilder()
-                .setBaseUri("http://localhost")
-                .setPort(9999)
-                .setAccept(ContentType.JSON)
-                .setContentType(ContentType.JSON)
-                .log(LogDetail.ALL)
-                .build();
-
-        @BeforeAll
-        static void setUpAll() {
-            given()
-                    .spec(requestSpec)
-                    .body(new RegistrationDto("vasya", "password", "active"))
-                    .when()
-                    .post("/api/system/users")
-                    .then()
-                    .statusCode(200);
+        @BeforeEach
+        void setup() {
+            open("http://localhost:9999");
         }
-       @org.junit.jupiter.api.Test
-        public void shouldSetForm() {
-            Configuration.holdBrowserOpen = true;
-            open("http://localhost:9999/");
-            $("[data-test-id='login'] input").setValue("vasya");
-            $("[data-test-id='password'] input").setValue("password");
+
+        @org.junit.jupiter.api.Test
+        void shouldSuccessfulLoginIfRegisteredActiveUser() {
+            var registeredUser = DataGenerator.Registration.getRegisteredUser("active");
+            $("[data-test-id='login'] input").setValue(registeredUser.getLogin());
+            $("[data-test-id='password'] input").setValue(registeredUser.getPassword());
             $(".button").click();
+            $(".heading").shouldBe(Condition.visible);
         }
 
+        @org.junit.jupiter.api.Test
+        void shouldGetErrorIfNotRegisteredUser() {
+            var notRegisteredUser = DataGenerator.Registration.getUser("active");
+            $("[data-test-id='login'] input").setValue(notRegisteredUser.getLogin());
+            $("[data-test-id='password'] input").setValue(notRegisteredUser.getPassword());
+            $(".button").click();
+            $(".notification__content").shouldHave(Condition.text("Ошибка! Неверно указан логин или пароль"));
+        }
+
+        @org.junit.jupiter.api.Test
+        void shouldGetErrorIfBlockedUser() {
+            var blockedUser = DataGenerator.Registration.getRegisteredUser("blocked");
+            $("[data-test-id='login'] input").setValue(blockedUser.getLogin());
+            $("[data-test-id='password'] input").setValue(blockedUser.getPassword());
+            $(".button").click();
+            $(".notification__content").shouldHave(Condition.text("Ошибка! Неверно указан логин или пароль"));
+        }
+
+        @org.junit.jupiter.api.Test
+        void shouldGetErrorIfWrongLogin() {
+            var registeredUser = DataGenerator.Registration.getRegisteredUser("active");
+            var wrongLogin = DataGenerator.getRandomLogin();
+            $("[data-test-id='login'] input").setValue(wrongLogin);
+            $("[data-test-id='password'] input").setValue(registeredUser.getPassword());
+            $(".button").click();
+            $(".notification__content").shouldHave(Condition.text("Ошибка! Неверно указан логин или пароль"));
+        }
+
+        @org.junit.jupiter.api.Test
+        void shouldGetErrorIfWrongPassword() {
+            var registeredUser = DataGenerator.Registration.getRegisteredUser("active");
+            var wrongPassword = DataGenerator.getRandomPassword();
+            $("[data-test-id='login'] input").setValue(registeredUser.getLogin());
+            $("[data-test-id='password'] input").setValue(wrongPassword);
+            $(".button").click();
+            $(".notification__content").shouldHave(Condition.text("Ошибка! Неверно указан логин или пароль"));
+        }
     }
 }
